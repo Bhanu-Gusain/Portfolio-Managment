@@ -1,7 +1,8 @@
 """Local LLM (Ollama) wrapper. Narrative explanations only — never decides trades.
 
-Each function takes structured engine output and returns plain English.
-Fail loud on Ollama connection errors — no template fallbacks.
+If Ollama is not running, callers receive a friendly `OllamaError` which the
+UI renders as "AI insights unavailable" rather than a crash. This keeps the
+app plug-and-play for users who don't install Ollama.
 """
 from __future__ import annotations
 
@@ -39,11 +40,24 @@ class OllamaClient:
         try:
             r = requests.post(url, json=payload, timeout=self.timeout)
         except requests.RequestException as exc:
-            raise OllamaError(f"Cannot reach Ollama at {self.base}: {exc}") from exc
+            raise OllamaError(
+                f"Cannot reach Ollama at {self.base}. Install Ollama and run `ollama serve` "
+                f"to enable AI insights. Details: {exc}"
+            ) from exc
         if r.status_code != 200:
             raise OllamaError(f"Ollama returned {r.status_code}: {r.text[:200]}")
         data = r.json()
         return (data.get("response") or "").strip()
+
+
+def is_available() -> bool:
+    """Quick health check. UI uses this to show/hide the AI tab."""
+    s = get_settings()
+    try:
+        r = requests.get(f"{s.ollama_base_url.rstrip('/')}/api/tags", timeout=2)
+        return r.status_code == 200
+    except requests.RequestException:
+        return False
 
 
 SYSTEM_PROMPT = (

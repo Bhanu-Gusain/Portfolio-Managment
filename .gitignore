@@ -1,11 +1,64 @@
+# ---------------------------------------------------------------
+# Portfolio Management — .gitignore
+# Goal: NEVER commit personal data, credentials, or user artifacts.
+# ---------------------------------------------------------------
+
+# Python
 .venv/
+venv/
+env/
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment & secrets
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+
+# Local database (contains user holdings — personal data)
 data/analysis.db
 data/analysis.db-journal
-.pytest_cache/
+data/analysis.db-wal
+data/analysis.db-shm
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# User uploads (Excel/CSV portfolios — strictly personal)
+data/uploads/
+data/user_*.csv
+data/user_*.xlsx
+data/user_*.xls
+data/my_*.csv
+data/my_*.xlsx
+data/my_*.xls
+data/personal_*
+uploads/
+
+# Logs
+*.log
+logs/
+
+# OS / editors
 .DS_Store
-*.egg-info/
+Thumbs.db
 .idea/
 .vscode/
+*.swp
+*~
+
+# Build artifacts
+build/
+dist/
+*.whl

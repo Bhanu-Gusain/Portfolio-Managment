@@ -1,0 +1,13 @@
+asset_type,name,identifier,quantity,avg_cost
+stock,Reliance Industries,RELIANCE.NS,12,2400.50
+stock,HDFC Bank,HDFCBANK.NS,18,1550.00
+stock,ICICI Bank,ICICIBANK.NS,25,920.00
+stock,Infosys,INFY.NS,20,1450.00
+stock,Tata Consultancy Services,TCS.NS,8,3300.00
+stock,Bharti Airtel,BHARTIARTL.NS,30,820.00
+stock,Larsen & Toubro,LT.NS,9,2400.00
+stock,Asian Paints,ASIANPAINT.NS,11,2900.00
+stock,Maruti Suzuki India,MARUTI.NS,2,9500.00
+stock,Bajaj Finance,BAJFINANCE.NS,5,6800.00
+mutual_fund,Parag Parikh Flexi Cap Fund Direct Growth,INF879O01019,120.5,62.40
+mutual_fund,Axis Bluechip Fund Direct Growth,INF846K01EW2,540.0,48.12

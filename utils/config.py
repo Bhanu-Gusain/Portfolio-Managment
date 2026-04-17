@@ -1,4 +1,4 @@
-"""Central config loader. Fail loud if required vars missing."""
+"""Central config loader. All defaults are safe — nothing required."""
 from __future__ import annotations
 
 from functools import lru_cache
@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.1:8b"
     ollama_timeout_seconds: int = 120
     cache_max_age_hours: int = 12
+    amfi_nav_url: str = "https://www.amfiindia.com/spages/NAVAll.txt"
     log_level: str = "INFO"
 
     @property

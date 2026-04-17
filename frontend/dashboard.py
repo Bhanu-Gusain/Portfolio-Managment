@@ -23,9 +23,13 @@ from core import ai_engine
 from core.allocation_engine import suggest_rebalance
 from core.portfolio_engine import compute_positions, portfolio_summary
 from db.init_db import init_db
-from db.repositories import holdings_repo, prices_repo, scores_repo, signals_repo, snapshots_repo
-from services.csv_parser import UnmappedSymbolError, parse_groww_csv
+from db.repositories import audit_repo, holdings_repo, prices_repo, scores_repo, signals_repo, snapshots_repo
 from services.pipeline import run_daily_batch
+from services.portfolio_loader import (
+    SUPPORTED_EXTENSIONS,
+    UnmappedSymbolError,
+    parse_portfolio_file,
+)
 
 st.set_page_config(page_title="AI Investment Engine", layout="wide", initial_sidebar_state="collapsed")
 init_db()
@@ -90,18 +94,24 @@ st.caption("Local-first quant analysis for Indian portfolios — engines decide,
 
 with st.sidebar:
     st.header("Actions")
-    uploaded = st.file_uploader("Upload Groww CSV", type=["csv"])
+    st.caption("Upload CSV/XLSX/XLS with your holdings (stocks and/or mutual funds).")
+    accepted = [e.lstrip(".") for e in SUPPORTED_EXTENSIONS]
+    uploaded = st.file_uploader("Upload portfolio file", type=accepted)
     if uploaded is not None:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+        suffix = Path(uploaded.name).suffix.lower() or ".csv"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(uploaded.read())
             path = Path(tmp.name)
         try:
-            parsed = parse_groww_csv(path)
+            parsed = parse_portfolio_file(path)
             for h in parsed:
-                holdings_repo.upsert_stock(h.symbol, h.name)
-            n = holdings_repo.replace_holdings([(h.symbol, h.quantity, h.avg_cost) for h in parsed])
+                holdings_repo.upsert_stock(h.symbol, h.name, asset_type=h.asset_type)
+            n = holdings_repo.replace_holdings(
+                [(h.symbol, h.quantity, h.avg_cost, h.asset_type) for h in parsed]
+            )
+            audit_repo.log("upload", f"file={uploaded.name} holdings={n}")
             _bust_caches()
-            st.success(f"Loaded {n} holdings.")
+            st.success(f"Loaded {n} holdings from {uploaded.name}.")
         except UnmappedSymbolError as exc:
             st.error(str(exc))
         except (ValueError, FileNotFoundError) as exc:
@@ -117,6 +127,14 @@ with st.sidebar:
                 st.success(f"Snapshot {snap_id} written.")
             except RuntimeError as exc:
                 st.error(str(exc))
+
+    with st.expander("Audit log"):
+        events = audit_repo.recent(limit=20)
+        if not events:
+            st.caption("No events yet.")
+        else:
+            for e in events:
+                st.markdown(f"`{e['occurred_at']}` **{e['event_type']}**" + (f" — {e['detail']}" if e.get("detail") else ""))
 
 
 tabs = st.tabs(["Overview", "Holdings", "Scoring", "Risk", "Actions", "AI Insights"])

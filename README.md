@@ -1,52 +1,110 @@
-# AI Investment Decision Engine (Local-First, NSE)
+# Portfolio Management — Local-First Quant Engine
 
-Production-grade, local-only quant engine for Indian stock portfolios. Deterministic scoring + risk + allocation engines, with a local LLM (Ollama) providing plain-English explanations. No cloud, no broker, no credentials.
+Plug-and-play desktop dashboard for Indian retail portfolios. Upload a CSV or Excel
+file of your **stocks or mutual funds**, and get deterministic scoring, risk warnings,
+rebalance suggestions, and daily action signals — all computed **locally** on your
+machine. No cloud, no broker integration, no credentials.
 
-## Architecture
+> **Privacy first.** Your holdings never leave your laptop. See [SECURITY.md](SECURITY.md).
 
-```
-CSV upload ─► portfolio_engine ─┐
-                                 ├─► pipeline ─► scoring ─► signals ─► dashboard
-yfinance ─► cache ─► technical ─┘                risk
-                                                  allocation
-                                                  ai_engine (explanation only)
-```
+## Features
 
-- **Engines drive decisions.** AI only narrates structured output.
-- **Dashboard reads from DB.** Compute happens in `services/pipeline.py`.
+- **Upload any layout** — CSV, XLSX, or XLS. Auto-detects columns from Groww,
+  Zerodha, Kuvera, or a hand-typed spreadsheet.
+- **Stocks + mutual funds** in one portfolio. Stocks priced via Yahoo Finance,
+  mutual funds priced via AMFI India's public NAV feed.
+- **Factor-based scoring** (0–10 scale) with 6 pluggable factors.
+- **Risk engine** flags concentration, bloat, and under/overweight positions.
+- **Daily actions** — SELL / ADD / WATCH signals from score + trend confluence.
+- **Optional AI narratives** via local Ollama. If Ollama isn't installed, the rest
+  of the app still works — AI tab just shows "unavailable".
+- **Full audit log** — every upload, pipeline run, and change is recorded in
+  `CHANGELOG.md` automatically.
 
-## Setup
+## Quickstart (zero config)
 
+### Windows
+Double-click `start.bat`. It creates a virtualenv, installs dependencies, initialises
+the database, and opens the dashboard at http://localhost:8501.
+
+### macOS / Linux
 ```bash
-cd /Users/bhanugusain/Documents/Analysis
-python -m venv .venv && source .venv/bin/activate
+./start.sh
+```
+
+### Manual setup (any OS)
+```bash
+python -m venv .venv
+# Windows:  .venv\Scripts\activate
+# macOS/Linux:  source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
-python db/init_db.py
+python scripts/setup.py
+streamlit run frontend/dashboard.py
 ```
 
-Install Ollama separately and pull the default model:
+## Using the app
+
+1. Open the dashboard.
+2. In the sidebar, upload a portfolio file. A sample is included at
+   `data/sample_holdings.csv` — mixed stocks + mutual funds.
+3. Click **Run Daily Batch**. Prices are pulled (~30s), indicators computed,
+   factors scored, snapshot written.
+4. Explore the 6 tabs: Overview, Holdings, Scoring, Risk, Actions, AI Insights.
+
+## Supported upload formats
+
+The loader auto-detects layout. Any of these work:
+
+| Layout | Columns |
+|---|---|
+| **Unified (recommended)** | `asset_type, name, identifier, quantity, avg_cost` |
+| Groww equity export | `Stock Name, ISIN, Quantity, Average buy price, …` |
+| Mutual fund export | `Scheme Name, ISIN, Units, NAV` or `Scheme Name, Units, Avg NAV` |
+| Hand-typed | Minimum: name/symbol + quantity + avg cost |
+
+If a stock name is unknown, the app tells you to add it to `data/symbol_map.csv`.
+Mutual funds need either an ISIN in the upload, or an entry in `data/mf_map.csv`.
+
+## Optional: enable AI narratives
+
+Install [Ollama](https://ollama.com), then:
+
 ```bash
-# macOS
-brew install ollama
 ollama serve &
 ollama pull llama3.1:8b
 ```
 
-## Running
+The AI Insights tab activates automatically. Ollama runs **locally** — no data
+leaves your machine.
 
-```bash
-# 1. Backend API
-uvicorn backend.main:app --reload
+## Architecture
 
-# 2. Dashboard (new terminal)
-streamlit run frontend/dashboard.py
-
-# 3. One-shot daily batch (CLI)
-python scripts/run_daily_batch.py
+```
+CSV/XLSX upload ─► portfolio_loader ─► holdings_repo ──┐
+                                                        │
+yfinance (stocks) ─┐                                    ▼
+AMFI (MF NAVs)     ├─► cache ─► pipeline ─► scoring ──► dashboard
+                   │                        risk
+                   └──────────────────────► actions
+                                            ai_engine (explanations only)
 ```
 
-Open the Streamlit dashboard → upload `data/sample_groww_holdings.csv` → click **Run Daily Batch** → explore all six tabs.
+- **Engines decide.** AI never picks trades.
+- **Dashboard reads.** Compute happens only in `services/pipeline.py`.
+
+## Directory layout
+
+| Path | What |
+|---|---|
+| `backend/` | FastAPI app (thin routes) — optional; the dashboard works without it |
+| `core/` | Portfolio, technical, scoring, risk, allocation, action, AI engines |
+| `data_layer/` | yfinance, AMFI, cache, fundamentals |
+| `db/` | SQLite schema + repositories + audit log |
+| `services/` | Pipeline orchestrator + unified portfolio loader |
+| `frontend/dashboard.py` | Streamlit UI |
+| `scripts/` | Setup + CLI daily batch |
+| `tests/` | pytest suite |
+| `data/` | Sample CSVs, symbol maps, local SQLite DB (git-ignored) |
 
 ## Tests
 
@@ -56,17 +114,19 @@ pytest -q
 
 ## Extending factors
 
-Add a class in `core/scoring_engine.py` that implements the `Factor` protocol, then append it to `DEFAULT_FACTORS`. The scoring engine is factor-pluggable — no other engine changes needed.
+Add a class in `core/scoring_engine.py` implementing the `Factor` protocol, then
+append to `DEFAULT_FACTORS`. The scoring engine is factor-pluggable — no other
+engine changes needed.
 
-## Directory layout
+## Changelog
 
-- `backend/` — FastAPI app (thin routes)
-- `core/` — Quant engines (portfolio, technical, scoring, risk, allocation, action, ai)
-- `data_layer/` — yfinance client, OHLCV cache, fundamentals
-- `db/` — SQLite schema, repositories
-- `services/` — pipeline orchestrator, CSV parser
-- `frontend/dashboard.py` — Streamlit UI
-- `utils/` — config, logging, time
-- `data/` — sample CSVs + SQLite DB
-- `tests/` — pytest suites
-- `scripts/` — CLI tools
+See [CHANGELOG.md](CHANGELOG.md) for version history and runtime event log.
+
+## Security & privacy
+
+See [SECURITY.md](SECURITY.md). TL;DR: no personal data in code, no outbound calls
+other than public-API price lookups, no credentials ever committed.
+
+## Licence
+
+MIT — see `LICENSE` file (add one before forking if you plan to redistribute).

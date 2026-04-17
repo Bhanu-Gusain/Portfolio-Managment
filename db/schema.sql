@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS stocks_master (
   name TEXT NOT NULL,
   sector TEXT,
   industry TEXT,
+  asset_type TEXT NOT NULL DEFAULT 'stock',   -- stock | mutual_fund | etf
   added_at TEXT NOT NULL
 );
 
@@ -53,6 +54,7 @@ CREATE TABLE IF NOT EXISTS portfolio_holdings (
   symbol TEXT NOT NULL,
   quantity REAL NOT NULL,
   avg_cost REAL NOT NULL,
+  asset_type TEXT NOT NULL DEFAULT 'stock',   -- stock | mutual_fund | etf
   uploaded_at TEXT NOT NULL,
   FOREIGN KEY (symbol) REFERENCES stocks_master(symbol)
 );
@@ -87,3 +89,12 @@ CREATE TABLE IF NOT EXISTS snapshots (
   payload TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_snapshots_taken_at ON snapshots(taken_at DESC);
+
+-- Audit log for all data-mutating events (holdings upload, pipeline runs, etc.)
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  occurred_at TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  detail TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_audit_occurred_at ON audit_log(occurred_at DESC);

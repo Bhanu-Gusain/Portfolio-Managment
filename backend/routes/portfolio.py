@@ -1,4 +1,4 @@
-"""Portfolio routes: upload CSV, list positions, summary."""
+"""Portfolio routes: upload CSV/XLSX/XLS, list positions, summary."""
 from __future__ import annotations
 
 import shutil
@@ -10,7 +10,11 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from backend.schemas import PortfolioSummary, PositionOut, UploadOut
 from core.portfolio_engine import compute_positions, portfolio_summary
 from db.repositories import holdings_repo
-from services.csv_parser import UnmappedSymbolError, parse_groww_csv
+from services.portfolio_loader import (
+    SUPPORTED_EXTENSIONS,
+    UnmappedSymbolError,
+    parse_portfolio_file,
+)
 
 router = APIRouter()
 
@@ -19,11 +23,18 @@ router = APIRouter()
 async def upload(file: UploadFile = File(...)) -> UploadOut:
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename")
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+    ext = Path(file.filename).suffix.lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{ext}'. Supported: {sorted(SUPPORTED_EXTENSIONS)}",
+        )
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = Path(tmp.name)
     try:
-        parsed = parse_groww_csv(tmp_path)
+        parsed = parse_portfolio_file(tmp_path)
     except UnmappedSymbolError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except (ValueError, FileNotFoundError) as exc:
@@ -32,8 +43,10 @@ async def upload(file: UploadFile = File(...)) -> UploadOut:
         tmp_path.unlink(missing_ok=True)
 
     for h in parsed:
-        holdings_repo.upsert_stock(h.symbol, h.name)
-    n = holdings_repo.replace_holdings([(h.symbol, h.quantity, h.avg_cost) for h in parsed])
+        holdings_repo.upsert_stock(h.symbol, h.name, asset_type=h.asset_type)
+    n = holdings_repo.replace_holdings(
+        [(h.symbol, h.quantity, h.avg_cost, h.asset_type) for h in parsed]
+    )
     return UploadOut(holdings_loaded=n)
 
 
