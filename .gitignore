@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------
-# Portfolio Management — .gitignore
+# Portfolio Dashboard — .gitignore
 # Goal: NEVER commit personal data, credentials, or user artifacts.
 # ---------------------------------------------------------------
 
@@ -26,7 +26,13 @@ __pycache__/
 credentials.json
 secrets.json
 
-# Local database (contains user holdings — personal data)
+# Portfolio data folder (user holdings — strictly personal)
+portfolio_data/**
+!portfolio_data/templates/
+!portfolio_data/templates/**
+!portfolio_data/.gitkeep
+
+# Legacy (pre-0.3.0) — kept so old local files aren't accidentally committed
 data/analysis.db
 data/analysis.db-journal
 data/analysis.db-wal
@@ -34,8 +40,6 @@ data/analysis.db-shm
 data/*.db
 data/*.sqlite
 data/*.sqlite3
-
-# User uploads (Excel/CSV portfolios — strictly personal)
 data/uploads/
 data/user_*.csv
 data/user_*.xlsx

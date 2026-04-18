@@ -4,51 +4,62 @@ This project is **local-first**. Nothing in the codebase collects, transmits, or
 
 ## What is stored where
 
-| Data | Location | Ever leaves your machine? |
+| Data | Location | Git-tracked? |
 |---|---|---|
-| Your holdings (symbol, qty, cost) | `data/analysis.db` (SQLite, local) | **No** |
-| Uploaded CSV/Excel files | `data/uploads/` (local, git-ignored) | **No** |
-| Price data (OHLCV cache) | `data/analysis.db` (local) | **No** |
-| Fundamentals | `data/analysis.db` (local) | **No** |
-| AI explanations | In-memory, rendered in the dashboard | **No** (LLM runs locally via Ollama) |
-
-## What this repo must NEVER contain
-
-- Real brokerage account numbers, PAN, mobile numbers, email addresses, names.
-- API keys, broker tokens, OAuth secrets, session cookies.
-- Real portfolio CSV/Excel files. The only sample file checked in is `data/sample_holdings.csv` (hand-crafted, public NSE tickers only).
-- Any file matching patterns in `.gitignore` under "User uploads".
-
-If you ever paste real portfolio data into a file tracked by git, run:
-
-```bash
-git rm --cached <file>
-git commit -m "remove accidentally tracked personal data"
-```
-
-…and rotate any credentials that may have been exposed.
+| Your stocks / MFs / transactions / dividends | `portfolio_data/*.csv` | **No** (git-ignored) |
+| Raw broker exports | `portfolio_data/raw/*` | **No** (git-ignored) |
+| Price cache (parquet) | `portfolio_data/.cache/*` | **No** (git-ignored) |
+| Canonical CSV templates (empty headers) | `portfolio_data/templates/*` | Yes — no data |
+| Symbol / sector / market-cap maps | `data/*.csv` | Yes — public reference only |
+| Source code | everywhere else | Yes |
 
 ## External network calls (all read-only, all public APIs, no auth)
 
 | Service | Purpose | Data sent |
 |---|---|---|
-| Yahoo Finance (`yfinance`) | Historical prices + basic info | Public tickers only |
-| AMFI India (`amfiindia.com`) | Mutual fund NAVs | None — downloads a public text file |
-| Ollama (`localhost:11434`) | AI narratives (optional) | Portfolio aggregates, **never** your name or account details |
+| Yahoo Finance (`yfinance`) | Stock LTP + history + 52w bands | Public tickers only |
+| AMFI India (`amfiindia.com/spages/NAVAll.txt`) | MF NAVs + category metadata | None — GET a public text file |
+| `api.mfapi.in` | MF historical NAV (Performance tab only) | Scheme code only |
 
 There are **no** outbound calls to:
 - Your broker
 - Anthropic / OpenAI / any cloud LLM
 - Any analytics, telemetry, or crash-reporting service
 
-## Hardening checklist (for forks / contributors)
+The only data that ever leaves your machine is **stock tickers and MF scheme
+codes** — never positions, quantities, buy prices, or personal identifiers.
 
-- [ ] `.env` is in `.gitignore` — verify `git check-ignore .env` prints `.env`.
-- [ ] No personal identifiers in sample data — `data/*.csv` files are generic.
-- [ ] `data/analysis.db` is git-ignored.
-- [ ] Uploads directory is git-ignored.
+## What this repo must NEVER contain
+
+- Real brokerage account numbers, PAN, mobile numbers, email addresses, names.
+- API keys, broker tokens, OAuth secrets, session cookies.
+- Real portfolio CSV/Excel files. The only sample data shipped is in
+  `data/symbol_map.csv`, `data/sector_map.csv`, `data/marketcap_map.csv`,
+  `data/mf_map.csv` (all public tickers / ISINs, no personal data).
+- Any file matching patterns in `.gitignore` under `portfolio_data/`.
+
+If you ever paste real portfolio data into a git-tracked file:
+
+```bash
+git rm --cached <file>
+git commit -m "remove accidentally tracked personal data"
+```
+
+## Hardening checklist (forks / contributors)
+
+- [ ] `git check-ignore portfolio_data/stock_holdings.csv` prints the path (= ignored)
+- [ ] `grep -r "your-name\|email\|pan\|aadhaar" --include="*.csv" data/` returns nothing
+- [ ] `.env` is git-ignored (`.env.example` is fine to commit)
 - [ ] Before pushing a PR: run `git ls-files | xargs grep -l -i -E '(pan|aadhaar|mobile|@gmail|@yahoo|@outlook)'` and confirm no hits.
+
+## Network-free mode
+
+For zero-network operation:
+- Pre-populate `portfolio_data/.cache/` with parquet snapshots from an online run.
+- Do not click "Refresh prices" in the sidebar.
+- The dashboard works fully on cost-basis data without any fetch.
 
 ## Reporting a vulnerability
 
-Open a private GitHub security advisory on this repository. Do not file a public issue for security reports.
+Open a private GitHub security advisory on this repository. Do not file a
+public issue for security reports.

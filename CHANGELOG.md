@@ -12,6 +12,54 @@ running app also appends runtime events (uploads, pipeline runs) to the
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-04-18
+
+### Changed — full rewrite
+- **No more database.** SQLite is gone. The app is now a pure file-driven,
+  in-memory read-only dashboard. Delete `data/analysis.db*` at your leisure
+  — it's no longer used.
+- **No more Ollama / LLM.** AI narratives, scoring, and action engines removed.
+  If you want them back, `git revert` 0.2.0 → 0.3.0.
+- **No more FastAPI backend.** Streamlit is the entire app.
+- **New `portfolio_data/` folder.** Your holdings, transactions, dividends and
+  watchlist now live as plain CSV files here (git-ignored). Templates shipped
+  in `portfolio_data/templates/`. Run `python scripts/init_portfolio_data.py`
+  to scaffold.
+- **Broker export adapters.** Drop Groww/Zerodha/Kuvera exports into
+  `portfolio_data/raw/` — they're auto-detected by filename + schema.
+
+### Added
+- 7-tab Streamlit dashboard: Overview, Holdings, Transactions, Performance,
+  Allocation & Risk, Dividends, Watchlist.
+- `services/portfolio_data_loader.py` — loads and validates all canonical
+  files with per-field coercion (numeric, date, side normalisation, ISIN
+  upper-casing).
+- `services/price_fetcher.py` — yfinance + AMFI + mfapi.in with
+  same-day parquet cache in `portfolio_data/.cache/` and a one-click
+  "Refresh prices" button.
+- `services/fifo.py` — FIFO realised-P&L from transaction ledgers, with
+  per-lot charge allocation and Indian FY (`FYnn-nn`) labels.
+- `core/performance_engine.py` — XIRR (Brent's method) + daily portfolio
+  value timeseries reconstructed from transactions + historical prices.
+- `data/sector_map.csv`, `data/marketcap_map.csv` — stock classification
+  maps powering the Allocation & Risk pies.
+- Empty-state behaviour per tab — missing files show an explanatory message
+  instead of crashing or mysteriously blank panels.
+
+### Removed
+- `db/` (all repositories, schema, audit log)
+- `backend/` (FastAPI routes)
+- `core/ai_engine.py`, `core/scoring_engine.py`, `core/technical_engine.py`,
+  `core/action_engine.py`
+- `data_layer/` (yfinance_client, amfi_client, cache, fundamentals — the
+  public-facing equivalents live in `price_fetcher.py` now)
+- `services/pipeline.py`, `services/csv_parser.py`, `services/portfolio_loader.py`
+- `scripts/setup.py`, `scripts/run_daily_batch.py`
+- Dependencies: fastapi, uvicorn, pydantic, pydantic-settings, python-multipart
+
+### Dependencies
+- Added: `scipy` (XIRR), `pyarrow` (parquet cache)
+
 ## [0.2.0] — 2026-04-18
 
 ### Added
@@ -86,8 +134,9 @@ running app also appends runtime events (uploads, pipeline runs) to the
 
 ---
 
-## Runtime events (auto-appended)
+## Runtime events
 
-*Automatically logged by the running app. Local-only.*
+*Removed in 0.3.0 along with the audit log table. Legacy entries below are
+retained for archival purposes only.*
 - `2026-04-17T19:03:08.841805+00:00` **holdings_replaced** — count=2
 - `2026-04-17T19:03:09.027126+00:00` **holdings_replaced** — count=1

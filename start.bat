@@ -14,7 +14,7 @@ echo Installing/updating dependencies...
 python -m pip install --upgrade pip >nul
 pip install -r requirements.txt || goto :error
 
-python scripts\setup.py || goto :error
+python scripts\init_portfolio_data.py || goto :error
 
 echo.
 echo Launching dashboard at http://localhost:8501

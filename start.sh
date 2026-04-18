@@ -16,7 +16,7 @@ echo "Installing/updating dependencies..."
 python -m pip install --upgrade pip > /dev/null
 pip install -r requirements.txt
 
-python scripts/setup.py
+python scripts/init_portfolio_data.py
 
 echo
 echo "Launching dashboard at http://localhost:8501"

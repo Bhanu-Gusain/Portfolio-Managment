@@ -1,4 +1,4 @@
-"""Pytest fixtures: isolated SQLite DB per test, project root on sys.path."""
+"""Pytest fixtures: isolated portfolio_data folder per test, project root on sys.path."""
 from __future__ import annotations
 
 import sys
@@ -12,17 +12,18 @@ if str(ROOT) not in sys.path:
 
 
 @pytest.fixture(autouse=True)
-def isolated_db(tmp_path, monkeypatch):
-    """Point the settings cache at a fresh SQLite file for each test."""
-    db_path = tmp_path / "test.db"
-    monkeypatch.setenv("DB_PATH", str(db_path))
+def isolated_portfolio_data(tmp_path, monkeypatch):
+    """Point the settings at a fresh portfolio_data/ for each test."""
+    data_dir = tmp_path / "portfolio_data"
+    data_dir.mkdir()
+    (data_dir / "raw").mkdir()
+    (data_dir / ".cache").mkdir()
+
+    monkeypatch.setenv("PORTFOLIO_DATA_DIR", str(data_dir))
 
     from utils import config
     config.get_settings.cache_clear()
 
-    from db.init_db import init_db
-    init_db()
-
-    yield db_path
+    yield data_dir
 
     config.get_settings.cache_clear()

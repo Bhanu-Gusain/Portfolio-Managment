@@ -1,83 +1,133 @@
-"""Portfolio computation: positions, P&L, allocation %.
+"""Portfolio positions + summary computed from in-memory DataFrames.
 
-Reads holdings + latest prices from DB. Fail loud if a holding has no price.
+Combines stock_holdings + mf_holdings with a price frame (stock_prices +
+mf_prices) to produce a unified positions DataFrame. No DB, no side effects.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-
-from db.repositories import holdings_repo, prices_repo
-from utils.logging import get_logger
-
-log = get_logger(__name__)
+import pandas as pd
 
 
-@dataclass(frozen=True)
-class Position:
-    symbol: str
-    quantity: float
-    avg_cost: float
-    last_price: float
-    cost_basis: float
-    current_value: float
-    pnl: float
-    pnl_pct: float
-    allocation_pct: float
-
-    def as_dict(self) -> dict:
-        return asdict(self)
+POSITION_COLUMNS = [
+    "asset_type", "identifier", "name", "quantity", "avg_cost", "ltp",
+    "invested", "current_value", "pnl", "pnl_pct", "weight_pct",
+    "day_change_pct",
+]
 
 
-def compute_positions() -> list[Position]:
-    holdings = holdings_repo.list_holdings()
-    if not holdings:
-        return []
+def build_positions(
+    stock_holdings: pd.DataFrame,
+    mf_holdings: pd.DataFrame,
+    stock_prices: pd.DataFrame,
+    mf_prices: pd.DataFrame,
+) -> pd.DataFrame:
+    """Return a unified positions DataFrame. LTP is NaN when price missing."""
+    rows: list[dict] = []
 
-    raw = []
-    for h in holdings:
-        price = prices_repo.latest_price(h.symbol)
-        if price is None:
-            raise RuntimeError(f"No price data for {h.symbol}. Run pipeline before computing positions.")
-        raw.append((h, price))
+    stock_price_map = (
+        stock_prices.set_index("symbol").to_dict("index") if not stock_prices.empty else {}
+    )
+    if not stock_holdings.empty:
+        for _, h in stock_holdings.iterrows():
+            sym = str(h["symbol"]).strip().upper()
+            qty = float(h["quantity"]) if pd.notna(h["quantity"]) else 0.0
+            avg = float(h["avg_cost"]) if pd.notna(h["avg_cost"]) else 0.0
+            pm = stock_price_map.get(sym, {})
+            ltp = pm.get("ltp")
+            day_chg = pm.get("day_change_pct")
+            invested = qty * avg
+            current = qty * ltp if ltp is not None else None
+            pnl = current - invested if current is not None else None
+            pnl_pct = (pnl / invested * 100.0) if (pnl is not None and invested > 0) else None
+            rows.append({
+                "asset_type": "stock",
+                "identifier": sym,
+                "name": sym,
+                "quantity": qty,
+                "avg_cost": avg,
+                "ltp": ltp,
+                "invested": invested,
+                "current_value": current,
+                "pnl": pnl,
+                "pnl_pct": pnl_pct,
+                "weight_pct": None,
+                "day_change_pct": day_chg,
+            })
 
-    total_value = sum(h.quantity * p for (h, p) in raw)
-    if total_value <= 0:
-        raise RuntimeError("Portfolio total value computed as <= 0; check price data.")
+    mf_price_map = (
+        mf_prices.set_index("isin").to_dict("index") if not mf_prices.empty else {}
+    )
+    if not mf_holdings.empty:
+        for _, h in mf_holdings.iterrows():
+            isin = str(h["isin"]).strip().upper()
+            units = float(h["units"]) if pd.notna(h["units"]) else 0.0
+            avg = float(h["avg_nav"]) if pd.notna(h["avg_nav"]) else 0.0
+            name = str(h["scheme_name"]).strip() or isin
+            pm = mf_price_map.get(isin, {})
+            nav = pm.get("nav")
+            invested = units * avg
+            current = units * nav if nav is not None else None
+            pnl = current - invested if current is not None else None
+            pnl_pct = (pnl / invested * 100.0) if (pnl is not None and invested > 0) else None
+            rows.append({
+                "asset_type": "mutual_fund",
+                "identifier": isin,
+                "name": name,
+                "quantity": units,
+                "avg_cost": avg,
+                "ltp": nav,
+                "invested": invested,
+                "current_value": current,
+                "pnl": pnl,
+                "pnl_pct": pnl_pct,
+                "weight_pct": None,
+                "day_change_pct": None,
+            })
 
-    positions: list[Position] = []
-    for h, price in raw:
-        cost_basis = h.quantity * h.avg_cost
-        current_value = h.quantity * price
-        pnl = current_value - cost_basis
-        pnl_pct = (pnl / cost_basis * 100.0) if cost_basis > 0 else 0.0
-        alloc = current_value / total_value * 100.0
-        positions.append(Position(
-            symbol=h.symbol,
-            quantity=h.quantity,
-            avg_cost=h.avg_cost,
-            last_price=price,
-            cost_basis=cost_basis,
-            current_value=current_value,
-            pnl=pnl,
-            pnl_pct=pnl_pct,
-            allocation_pct=alloc,
-        ))
+    if not rows:
+        return pd.DataFrame(columns=POSITION_COLUMNS)
 
-    return sorted(positions, key=lambda p: -p.allocation_pct)
+    df = pd.DataFrame(rows)
+    total_value = df["current_value"].dropna().sum()
+    if total_value > 0:
+        df["weight_pct"] = df["current_value"].apply(
+            lambda v: (v / total_value * 100.0) if pd.notna(v) else None
+        )
+    return df[POSITION_COLUMNS].sort_values(
+        "current_value", ascending=False, na_position="last"
+    ).reset_index(drop=True)
 
 
-def portfolio_summary() -> dict:
-    positions = compute_positions()
-    if not positions:
-        return {"total_value": 0.0, "total_cost": 0.0, "total_pnl": 0.0, "pnl_pct": 0.0, "num_positions": 0}
-    total_value = sum(p.current_value for p in positions)
-    total_cost = sum(p.cost_basis for p in positions)
-    total_pnl = total_value - total_cost
-    pnl_pct = (total_pnl / total_cost * 100.0) if total_cost > 0 else 0.0
+def summarise(positions: pd.DataFrame, realised_ytd: float = 0.0) -> dict:
+    """Top-line KPIs for the Overview tab."""
+    if positions.empty:
+        return {
+            "total_value": 0.0, "total_invested": 0.0, "unrealised_pnl": 0.0,
+            "unrealised_pnl_pct": 0.0, "realised_ytd": realised_ytd,
+            "day_change": 0.0, "num_positions": 0,
+        }
+    total_value = float(positions["current_value"].dropna().sum())
+    total_invested = float(positions["invested"].sum())
+    unrealised = total_value - total_invested if total_value else 0.0
+    pct = (unrealised / total_invested * 100.0) if total_invested > 0 else 0.0
+
+    prev_value = 0.0
+    for _, r in positions.iterrows():
+        ltp = r.get("ltp")
+        dc = r.get("day_change_pct")
+        qty = r.get("quantity") or 0
+        if ltp is None or dc is None:
+            continue
+        prev = ltp / (1 + dc / 100.0) if (1 + dc / 100.0) != 0 else ltp
+        prev_value += qty * prev
+    day_change = total_value - prev_value if prev_value else 0.0
+
     return {
         "total_value": total_value,
-        "total_cost": total_cost,
-        "total_pnl": total_pnl,
-        "pnl_pct": pnl_pct,
+        "total_invested": total_invested,
+        "unrealised_pnl": unrealised,
+        "unrealised_pnl_pct": pct,
+        "realised_ytd": realised_ytd,
+        "day_change": day_change,
         "num_positions": len(positions),
     }

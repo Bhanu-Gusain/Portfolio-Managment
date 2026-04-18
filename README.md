@@ -1,110 +1,120 @@
-# Portfolio Management — Local-First Quant Engine
+# Portfolio Dashboard — file-driven, local-first
 
-Plug-and-play desktop dashboard for Indian retail portfolios. Upload a CSV or Excel
-file of your **stocks or mutual funds**, and get deterministic scoring, risk warnings,
-rebalance suggestions, and daily action signals — all computed **locally** on your
-machine. No cloud, no broker integration, no credentials.
+A lightweight Streamlit dashboard for visualising your Indian stock + mutual fund
+portfolio. Drop your CSV/XLSX files into a folder; the app reads them, pulls
+live prices from yfinance + AMFI, and renders 7 tabs of data visualisation.
 
-> **Privacy first.** Your holdings never leave your laptop. See [SECURITY.md](SECURITY.md).
+> **Local-first.** No database, no server, no LLM, no broker integration, no
+> credentials. Your holdings never leave your laptop. See [SECURITY.md](SECURITY.md).
 
-## Features
+## What's in the dashboard
 
-- **Upload any layout** — CSV, XLSX, or XLS. Auto-detects columns from Groww,
-  Zerodha, Kuvera, or a hand-typed spreadsheet.
-- **Stocks + mutual funds** in one portfolio. Stocks priced via Yahoo Finance,
-  mutual funds priced via AMFI India's public NAV feed.
-- **Factor-based scoring** (0–10 scale) with 6 pluggable factors.
-- **Risk engine** flags concentration, bloat, and under/overweight positions.
-- **Daily actions** — SELL / ADD / WATCH signals from score + trend confluence.
-- **Optional AI narratives** via local Ollama. If Ollama isn't installed, the rest
-  of the app still works — AI tab just shows "unavailable".
-- **Full audit log** — every upload, pipeline run, and change is recorded in
-  `CHANGELOG.md` automatically.
+1. **Overview** — total value, invested, unrealised + realised P&L, today's change, asset-class donut, top movers, value sparkline.
+2. **Holdings** — unified stock+MF table with LTP, P&L, weight; treemap toggle.
+3. **Transactions** — filterable buy/sell ledger, monthly flows, FIFO realised P&L by Indian FY.
+4. **Performance** — reconstructed portfolio value timeseries with NIFTY overlay + XIRR per bucket.
+5. **Allocation & Risk** — sector / market-cap / MF-category breakdowns + concentration warnings.
+6. **Dividends** — monthly bar, per-ticker yield-on-cost, FY totals.
+7. **Watchlist** — live prices + 52w bands for symbols you track.
 
-## Quickstart (zero config)
+## Quickstart
 
-### Windows
-Double-click `start.bat`. It creates a virtualenv, installs dependencies, initialises
-the database, and opens the dashboard at http://localhost:8501.
-
-### macOS / Linux
-```bash
-./start.sh
-```
-
-### Manual setup (any OS)
 ```bash
 python -m venv .venv
-# Windows:  .venv\Scripts\activate
-# macOS/Linux:  source .venv/bin/activate
+source .venv/bin/activate                # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python scripts/setup.py
+python scripts/init_portfolio_data.py    # creates portfolio_data/ with empty templates
+# Edit the CSVs under portfolio_data/ with your holdings
 streamlit run frontend/dashboard.py
 ```
 
-## Using the app
+Or use the launchers:
 
-1. Open the dashboard.
-2. In the sidebar, upload a portfolio file. A sample is included at
-   `data/sample_holdings.csv` — mixed stocks + mutual funds.
-3. Click **Run Daily Batch**. Prices are pulled (~30s), indicators computed,
-   factors scored, snapshot written.
-4. Explore the 6 tabs: Overview, Holdings, Scoring, Risk, Actions, AI Insights.
-
-## Supported upload formats
-
-The loader auto-detects layout. Any of these work:
-
-| Layout | Columns |
+| OS | Command |
 |---|---|
-| **Unified (recommended)** | `asset_type, name, identifier, quantity, avg_cost` |
-| Groww equity export | `Stock Name, ISIN, Quantity, Average buy price, …` |
-| Mutual fund export | `Scheme Name, ISIN, Units, NAV` or `Scheme Name, Units, Avg NAV` |
-| Hand-typed | Minimum: name/symbol + quantity + avg cost |
+| macOS / Linux | `./start.sh` |
+| Windows | `start.bat` |
 
-If a stock name is unknown, the app tells you to add it to `data/symbol_map.csv`.
-Mutual funds need either an ISIN in the upload, or an entry in `data/mf_map.csv`.
+## The `portfolio_data/` folder
 
-## Optional: enable AI narratives
-
-Install [Ollama](https://ollama.com), then:
-
-```bash
-ollama serve &
-ollama pull llama3.1:8b
-```
-
-The AI Insights tab activates automatically. Ollama runs **locally** — no data
-leaves your machine.
-
-## Architecture
+This is the **only** place your holdings live. The folder is git-ignored.
 
 ```
-CSV/XLSX upload ─► portfolio_loader ─► holdings_repo ──┐
-                                                        │
-yfinance (stocks) ─┐                                    ▼
-AMFI (MF NAVs)     ├─► cache ─► pipeline ─► scoring ──► dashboard
-                   │                        risk
-                   └──────────────────────► actions
-                                            ai_engine (explanations only)
+portfolio_data/
+├── stock_holdings.csv         ← your current stock positions
+├── mf_holdings.csv            ← your current MF positions
+├── stock_transactions.csv     ← buy/sell ledger (optional)
+├── mf_transactions.csv        ← MF purchase/redemption ledger (optional)
+├── dividends.csv              ← dividend log (optional)
+├── watchlist.csv              ← tickers to watch (optional)
+├── raw/                       ← optional: drop broker exports here
+│   ├── groww_equity_*.xlsx    ← auto-detected
+│   ├── zerodha_tradebook*.csv ← auto-detected
+│   └── kuvera_*.csv           ← auto-detected
+└── .cache/                    ← price cache (auto-managed)
 ```
 
-- **Engines decide.** AI never picks trades.
-- **Dashboard reads.** Compute happens only in `services/pipeline.py`.
+Every file is **optional** — tabs that need a missing file will render a
+message telling you which file to add. Empty templates live at
+`portfolio_data/templates/` (committed to git for copy-paste).
+
+### Canonical file schemas
+
+| File | Required columns |
+|---|---|
+| `stock_holdings.csv` | `symbol, exchange, quantity, avg_cost, currency` |
+| `mf_holdings.csv` | `isin, scheme_name, units, avg_nav` |
+| `stock_transactions.csv` | `date, symbol, exchange, side, quantity, price, charges, notes` |
+| `mf_transactions.csv` | `date, isin, scheme_name, side, units, nav, amount, folio, notes` |
+| `dividends.csv` | `date, symbol_or_isin, asset_type, amount, per_unit, notes` |
+| `watchlist.csv` | `symbol_or_isin, asset_type, note` |
+
+### Broker exports
+
+Drop a raw broker file into `portfolio_data/raw/` and the loader will try an
+adapter:
+
+| Filename pattern | Maps to |
+|---|---|
+| `groww_equity_*` | `stock_holdings` |
+| `groww_mf_*` | `mf_holdings` |
+| `zerodha_console_holdings*` | `stock_holdings` |
+| `zerodha_tradebook*` | `stock_transactions` |
+| `kuvera_*_holdings*` | `mf_holdings` |
+| `kuvera_*_transactions*` | `mf_transactions` |
+
+Unrecognised files fail loudly with an actionable hint. To add a new adapter,
+drop a module into `services/adapters/` that exposes `NAME`, `matches(path)`,
+and `parse(path) -> DataFrame`, and add it to `ADAPTERS` in
+`services/adapters/__init__.py`.
+
+## Pricing
+
+- **Stocks** — yfinance, batched per session. Append `.NS` for NSE or `.BO`
+  for BSE in your `symbol` column.
+- **Mutual funds** — [AMFI India](https://www.amfiindia.com/spages/NAVAll.txt)
+  NAV feed, keyed by ISIN. Category metadata powers the MF-category pie.
+- **MF historical NAV** — [api.mfapi.in](https://api.mfapi.in) by AMFI scheme
+  code (only used by the Performance tab).
+- **Cache** — parquet files in `portfolio_data/.cache/`. Same-day hit → served
+  from disk; stale → refetched. "🔄 Refresh prices" in the sidebar nukes today's
+  cache.
+
+If a fetch fails or you're offline, LTP columns show `—` and the rest of the
+dashboard still works on cost-basis numbers.
 
 ## Directory layout
 
-| Path | What |
+| Path | Purpose |
 |---|---|
-| `backend/` | FastAPI app (thin routes) — optional; the dashboard works without it |
-| `core/` | Portfolio, technical, scoring, risk, allocation, action, AI engines |
-| `data_layer/` | yfinance, AMFI, cache, fundamentals |
-| `db/` | SQLite schema + repositories + audit log |
-| `services/` | Pipeline orchestrator + unified portfolio loader |
-| `frontend/dashboard.py` | Streamlit UI |
-| `scripts/` | Setup + CLI daily batch |
+| `portfolio_data/` | Your portfolio files (git-ignored, user-local) |
+| `core/` | Pure-Python engines: `portfolio_engine`, `risk_engine`, `allocation_engine`, `performance_engine` (XIRR) |
+| `services/` | `portfolio_data_loader`, `price_fetcher`, `fifo`, `adapters/` |
+| `frontend/dashboard.py` | Streamlit UI (7 tabs) |
+| `data/` | Reference maps (symbol, sector, market-cap, MF) — committed |
+| `scripts/init_portfolio_data.py` | One-time scaffold script |
 | `tests/` | pytest suite |
-| `data/` | Sample CSVs, symbol maps, local SQLite DB (git-ignored) |
+| `utils/` | Config loader, logging |
 
 ## Tests
 
@@ -112,21 +122,18 @@ AMFI (MF NAVs)     ├─► cache ─► pipeline ─► scoring ──► dash
 pytest -q
 ```
 
-## Extending factors
-
-Add a class in `core/scoring_engine.py` implementing the `Factor` protocol, then
-append to `DEFAULT_FACTORS`. The scoring engine is factor-pluggable — no other
-engine changes needed.
+The test suite mocks yfinance and AMFI — no network access required.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for version history and runtime event log.
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## Security & privacy
 
-See [SECURITY.md](SECURITY.md). TL;DR: no personal data in code, no outbound calls
-other than public-API price lookups, no credentials ever committed.
+See [SECURITY.md](SECURITY.md). TL;DR: no personal data in code, the only
+outbound calls are yfinance / AMFI / api.mfapi.in (all public, unauthenticated,
+read-only), no credentials ever committed.
 
 ## Licence
 
-MIT — see `LICENSE` file (add one before forking if you plan to redistribute).
+MIT — add a LICENSE file before publishing.
