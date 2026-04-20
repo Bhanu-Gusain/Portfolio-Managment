@@ -11,7 +11,10 @@
       "Bash(.venv/Scripts/python.exe scripts/setup.py)",
       "Bash(.venv/Scripts/python.exe -m pytest -q)",
       "Bash(.venv/Scripts/python.exe -c ' *)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(.venv/Scripts/python.exe *)",
+      "Bash(.venv/Scripts/python.exe -m streamlit run frontend/dashboard.py --server.headless true --server.port 8501)",
+      "Bash(echo \"PID: $!\")"
     ]
   }
 }

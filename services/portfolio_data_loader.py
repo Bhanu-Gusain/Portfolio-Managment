@@ -119,38 +119,56 @@ def load(data_dir: Path | None = None) -> PortfolioData:
                     data.loaded_files.append(p.name)
                 break
 
-    # 2) Broker exports in raw/
+    # 2) Broker exports — scan raw/, portfolio_data/ root (non-canonical xlsx/xls),
+    #    and templates/ (xlsx/xls only; csvs there are sample templates).
+    canonical_names = {f"{n}{ext}" for n in CANONICAL_FILES for ext in (".csv", ".xlsx", ".xls")}
+    scan_targets: list[Path] = []
     raw_dir = base / "raw"
     if raw_dir.exists():
-        for p in sorted(raw_dir.iterdir()):
-            if p.name.startswith(".") or p.is_dir():
+        scan_targets.extend(sorted(p for p in raw_dir.iterdir()
+                                   if not p.name.startswith(".") and not p.is_dir()))
+    for p in sorted(base.iterdir()):
+        if p.is_dir() or p.name.startswith("."):
+            continue
+        if p.name in canonical_names:
+            continue
+        if p.suffix.lower() in {".xlsx", ".xls"}:
+            scan_targets.append(p)
+    tpl = base / "templates"
+    if tpl.exists():
+        for p in sorted(tpl.iterdir()):
+            if p.is_dir() or p.name.startswith("."):
                 continue
-            if p.suffix.lower() not in {".csv", ".xlsx", ".xls"}:
-                continue
-            try:
-                target, df = route(p)
-            except UnsupportedFileError as exc:
-                data.warnings.append(str(exc))
-                log.warning("Unsupported raw file %s: %s", p.name, exc)
-                continue
-            except (ValueError, KeyError) as exc:
-                data.warnings.append(f"{p.name}: parse error — {exc}")
-                log.warning("Adapter parse error on %s: %s", p.name, exc)
-                continue
+            if p.suffix.lower() in {".xlsx", ".xls"}:
+                scan_targets.append(p)
 
+    for p in scan_targets:
+        if p.suffix.lower() not in {".csv", ".xlsx", ".xls"}:
+            continue
+        try:
+            pairs = route(p)
+        except UnsupportedFileError as exc:
+            data.warnings.append(str(exc))
+            log.warning("Unsupported raw file %s: %s", p.name, exc)
+            continue
+        except (ValueError, KeyError) as exc:
+            data.warnings.append(f"{p.name}: parse error — {exc}")
+            log.warning("Adapter parse error on %s: %s", p.name, exc)
+            continue
+
+        for target, df in pairs:
             if target not in SCHEMAS:
                 data.warnings.append(f"{p.name}: adapter returned unknown target {target!r}")
                 continue
 
             existing: pd.DataFrame = getattr(data, target)
             if not existing.empty:
-                # Canonical file already loaded — merge, dropping exact duplicates
                 combined = pd.concat([existing, _coerce(df, target)], ignore_index=True)
                 combined = combined.drop_duplicates().reset_index(drop=True)
                 setattr(data, target, combined)
             else:
                 setattr(data, target, _coerce(df, target))
-            data.loaded_files.append(p.name)
+        data.loaded_files.append(p.name)
 
     _validate(data)
     return data
