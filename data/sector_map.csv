@@ -1,21 +1,85 @@
 symbol,sector
-RELIANCE.NS,Energy
-HDFCBANK.NS,Financials
-ICICIBANK.NS,Financials
-INFY.NS,IT
-TCS.NS,IT
-BHARTIARTL.NS,Telecom
-LT.NS,Industrials
-KOTAKBANK.NS,Financials
-AXISBANK.NS,Financials
-SBIN.NS,Financials
-ITC.NS,Consumer
-HINDUNILVR.NS,Consumer
-ASIANPAINT.NS,Consumer
-MARUTI.NS,Auto
-BAJFINANCE.NS,Financials
-TATAMOTORS.NS,Auto
-SUNPHARMA.NS,Pharma
-WIPRO.NS,IT
-HCLTECH.NS,IT
-TITAN.NS,Consumer
+RELIANCE,Energy
+HDFCBANK,Financial Services
+ICICIBANK,Financial Services
+INFY,IT
+TCS,IT
+BHARTIARTL,Telecom
+LT,Capital Goods
+KOTAKBANK,Financial Services
+AXISBANK,Financial Services
+SBIN,Financial Services
+ITC,FMCG
+HINDUNILVR,FMCG
+ASIANPAINT,Consumer Durables
+MARUTI,Automobile
+BAJFINANCE,Financial Services
+TATAMOTORS,Automobile
+SUNPHARMA,Healthcare
+WIPRO,IT
+HCLTECH,IT
+TITAN,Consumer Durables
+ADANIGREEN,Power
+ADANIPOWER,Power
+ANGELONE,Financial Services
+ATGL,Oil & Gas
+ATHERENERG,Automobile
+BDL,Capital Goods
+BEL,Capital Goods
+BSE,Financial Services
+CDSL,Financial Services
+COALINDIA,Metals & Mining
+COCHINSHIP,Capital Goods
+CONCOR,Services
+EASEMYTRIP,Services
+GAIL,Oil & Gas
+GOLDIETF,ETF
+GRINFRA,Construction
+GRSE,Capital Goods
+HAL,Capital Goods
+HINDCOPPER,Metals & Mining
+HINDZINC,Metals & Mining
+IEX,Financial Services
+INDHOTEL,Services
+INOXWIND,Capital Goods
+IOB,Financial Services
+IOC,Oil & Gas
+IRB,Construction
+IRCON,Construction
+IRCTC,Services
+IREDA,Financial Services
+IRFC,Financial Services
+ITCHOTELS,Services
+JIOFIN,Financial Services
+KALYANKJIL,Consumer Durables
+KPIGREEN,Power
+LTF,Financial Services
+MAZDOCK,Capital Goods
+MICEL,Capital Goods
+MON100,ETF
+MONQ50,ETF
+NATIONALUM,Metals & Mining
+NCC,Construction
+NHPC,Power
+NLCINDIA,Power
+NMDC,Metals & Mining
+NTPC,Power
+NTPCGREEN,Power
+ONGC,Oil & Gas
+ORIENTCEM,Cement
+PFC,Financial Services
+PNCINFRA,Construction
+POWERGRID,Power
+RECLTD,Financial Services
+RVNL,Construction
+SAIL,Metals & Mining
+SILVERBEES,ETF
+SUZLON,Capital Goods
+SWIGGY,Services
+TATAPOWER,Power
+TATASTEEL,Metals & Mining
+TITAGARH,Capital Goods
+TMCV,Automobile
+TMPV,Automobile
+VBL,FMCG
+VEDL,Metals & Mining

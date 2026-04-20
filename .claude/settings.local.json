@@ -14,7 +14,14 @@
       "Bash(git check-ignore *)",
       "Bash(.venv/Scripts/python.exe *)",
       "Bash(.venv/Scripts/python.exe -m streamlit run frontend/dashboard.py --server.headless true --server.port 8501)",
-      "Bash(echo \"PID: $!\")"
+      "Bash(echo \"PID: $!\")",
+      "Bash(curl *)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill *)",
+      "Bash(echo \"Launched PID $!\")",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs -I{} taskkill //PID {} //F)",
+      "Bash(echo \"PID $!\")"
     ]
   }
 }
