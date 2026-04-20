@@ -32,6 +32,13 @@ portfolio_data/**
 !portfolio_data/templates/**
 !portfolio_data/.gitkeep
 
+# Safety net: even inside templates/, never commit real broker exports or PDFs.
+# templates/ is only for blank CSV samples + README.
+portfolio_data/templates/*.xlsx
+portfolio_data/templates/*.xls
+portfolio_data/templates/*.pdf
+portfolio_data/templates/*.zip
+
 # Legacy (pre-0.3.0) — kept so old local files aren't accidentally committed
 data/analysis.db
 data/analysis.db-journal

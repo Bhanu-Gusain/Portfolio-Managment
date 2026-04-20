@@ -10,7 +10,8 @@
       "Bash(.venv/Scripts/python.exe -m pip install -r requirements.txt)",
       "Bash(.venv/Scripts/python.exe scripts/setup.py)",
       "Bash(.venv/Scripts/python.exe -m pytest -q)",
-      "Bash(.venv/Scripts/python.exe -c ' *)"
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(git check-ignore *)"
     ]
   }
 }
